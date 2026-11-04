@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>ISTINJA' SCAN & CHECK - BBM Pendidikan Islam</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  
+  <!-- Google Fonts: Fredoka & Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+
+  <!-- TensorFlow.js, COCO-SSD & MobileNet CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .font-fun {
+      font-family: 'Fredoka', cursive, sans-serif;
+    }
+    @keyframes pulseRing {
+      0% { transform: scale(0.95); opacity: 0.9; }
+      50% { transform: scale(1.05); opacity: 0.4; }
+      100% { transform: scale(0.95); opacity: 0.9; }
+    }
+    .radar-pulse {
+      animation: pulseRing 2s infinite ease-in-out;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      display: none;
+    }
+    .custom-scroll {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-b from-sky-400 via-emerald-100 to-amber-50 min-h-screen text-slate-800 flex flex-col items-center">
+
+  <!-- Container Utama Mesra Telefon -->
+  <div class="w-full max-w-md bg-white min-h-screen shadow-2xl flex flex-col relative overflow-x-hidden pb-10">
+
+    <!-- HEADER / BILAH ATAS -->
+    <header class="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white p-4 shadow-lg rounded-b-3xl sticky top-0 z-30">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-10 h-10 bg-white text-emerald-600 rounded-2xl flex items-center justify-center font-bold text-xl shadow-md">
+            🔍
+          </div>
+          <div>
+            <h1 class="font-fun text-xl font-bold tracking-wide leading-tight">ISTINJA' SCAN & CHECK</h1>
+            <p class="text-xs text-emerald-100 font-semibold">SP 4.2.2 Menyenaraikan Alat Beristinja'</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btnAudioToggle" onclick="toggleAudio()" class="w-9 h-9 bg-white/20 active:scale-95 text-white rounded-full flex items-center justify-center text-sm shadow">
+            <i id="audioIcon" class="fa-solid fa-volume-high"></i>
+          </button>
+          <button onclick="goToMissionCard()" class="bg-amber-400 active:scale-95 text-amber-950 font-bold px-3 py-1.5 rounded-full text-xs flex items-center gap-1 shadow-md">
+            ⭐ <span id="headerScore">0/10</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- KANDUNGAN SKRIN BERPERINGKAT -->
+    <main class="flex-1 p-4 flex flex-col">
+
+      <!-- ================= PANDANGAN 1: PENGIMBAS KAMERA LANGSUNG ================= -->
+      <section id="viewScanner" class="flex-1 flex flex-col space-y-3">
+
+        <!-- Banner Panduan Murid -->
+        <div class="bg-gradient-to-r from-amber-100 to-amber-200 border-2 border-amber-300 rounded-2xl p-3 flex items-center gap-3 shadow-sm">
+          <span class="text-3xl">📷</span>
+          <div class="text-xs leading-relaxed text-amber-900">
+            <p class="font-bold text-sm">Hala Kamera ke Objek di Atas Meja!</p>
+            <p>Kamera mengecam secara automatik. Pegang stabil selama 1 saat.</p>
+          </div>
+        </div>
+
+        <!-- Ruang Kamera Langsung -->
+        <div class="relative w-full aspect-[4/3] bg-slate-900 rounded-3xl overflow-hidden shadow-inner border-4 border-white ring-4 ring-emerald-500/20">
+          <video id="webcamVideo" autoplay playsinline muted class="w-full h-full object-cover"></video>
+          <canvas id="detectionCanvas" class="hidden"></canvas>
+
+          <!-- Kotak Sasaran Fokus Pintar -->
+          <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
+            <div class="w-48 h-48 border-4 border-dashed border-emerald-400/80 rounded-3xl flex items-center justify-center relative radar-pulse">
+              <span class="text-white/40 text-4xl"><i class="fa-solid fa-crosshairs"></i></span>
+              <!-- Penunjuk Sudut Bingkai -->
+              <div class="absolute -top-2 -left-2 w-6 h-6 border-t-4 border-l-4 border-emerald-300 rounded-tl-lg"></div>
+              <div class="absolute -top-2 -right-2 w-6 h-6 border-t-4 border-r-4 border-emerald-300 rounded-tr-lg"></div>
+              <div class="absolute -bottom-2 -left-2 w-6 h-6 border-b-4 border-l-4 border-emerald-300 rounded-bl-lg"></div>
+              <div class="absolute -bottom-2 -right-2 w-6 h-6 border-b-4 border-r-4 border-emerald-300 rounded-br-lg"></div>
+            </div>
+            <p class="mt-2 text-[11px] text-white bg-black/60 px-3 py-1 rounded-full font-bold">
+              Letakkan objek di dalam petak
+            </p>
+          </div>
+
+          <!-- Lencana Status AI Atas Kamera -->
+          <div class="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
+            <div id="aiLiveBadge" class="bg-black/75 backdrop-blur text-white text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span id="aiLiveText">Sedang Memerhati...</span>
+            </div>
+            <div id="lockTimerBadge" class="hidden bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow">
+              MENGUNCI... ⏳
+            </div>
+          </div>
+
+          <!-- Bar Kemajuan Pengesahan Automatik -->
+          <div class="absolute bottom-0 left-0 right-0 h-2 bg-black/40">
+            <div id="lockProgressBar" class="h-full bg-emerald-400 w-0 transition-all duration-150"></div>
+          </div>
+        </div>
+
+        <!-- Butang Tukar Kamera / Segar Semula -->
+        <div class="flex items-center justify-between gap-2 pt-1">
+          <button onclick="switchCameraMode()" class="flex-1 py-2 px-3 bg-slate-100 active:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border border-slate-300 shadow-sm">
+            <i class="fa-solid fa-camera-rotate"></i> Tukar Kamera
+          </button>
+          <button onclick="restartCameraScanner()" class="flex-1 py-2 px-3 bg-slate-100 active:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border border-slate-300 shadow-sm">
+            <i class="fa-solid fa-arrows-rotate"></i> Reset Pengimbas
+          </button>
+        </div>
+
+        <!-- Kad Pemilih Cepat Pantas (Fallback 10 Bahan Wajib) -->
+        <div class="pt-2">
+          <div class="flex items-center justify-between mb-1.5">
+            <p class="text-xs font-bold text-slate-600">Atau Pilih Terus Bahan (10 Bahan Wajib):</p>
+            <span class="text-[10px] text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded-full">Sentuhan Pantas</span>
+          </div>
+          <div class="grid grid-cols-5 gap-2 custom-scroll overflow-y-auto max-h-40 p-1">
+            <button onclick="selectTargetDirectly('batu')" class="bg-amber-50 hover:bg-amber-100 active:scale-95 border-2 border-amber-200 p-1.5 rounded-xl flex flex-col items-center shadow-sm">
+              <span class="text-2xl">🪨</span>
+              <span class="text-[10px] font-bold text-amber-950 mt-0.5">Batu</span>
+            </button>
+            <button onclick="selectTargetDirectly('air')" class="bg-blue-50 hover:bg-blue-100 active:scale-95 border-2 border-blue-200 p-1.5 rounded-xl flex flex-col items-center shadow-sm">
+              <span class="text-2xl">💧</span>
+              <span class="text-[10px] font-bold text-blue-950 mt-0.5">Air</span>
+            </button>
+            <button onclick="selectTargetDirectly('tisu')" class="bg-emerald-50 hover:bg-emerald-100 active:scale-95 border-2 border-emerald-200 p-1.5 rounded-xl flex flex-col items-center shadow-sm">
+              <span class="text-2xl">🧻</span>
+              <span class="text-[10px] font-bold text-emerald-950 mt-0.5">Tisu</span>
+            </button>
+            <button onclick="selectTargetDirectly('epal')" class="bg-rose-50 hover:bg-rose-100 active:scale-95 border-2 border-rose-200 p-1.5 rounded-xl flex flex-col items-center shadow-sm">
+              <span class="text-2xl">🍎</span>
+              <span class="text-[10px] font-bold text-rose-950 mt-0.5">Epal</span>
+            </button>
+            <button onclick="selectTargetDirectly('pen')" class="bg-purple-50 hover:bg-purple-100 active:scale-95 border-2 border-purple-200 p-1.5 rounded-xl flex flex-col items-center shadow-sm">
+              <span class="text-2xl">🖊️</span>
+              <span class="text-[10px] font-bold text-purple-950 mt-0.5">Pen</span>
+            </button>
+            <button onclick="selectTargetDirectly('daun')" class="bg-lime-50 hover:bg-lime-100 active:scale-95 border-2 border-lime-200 p-1.5 rounded-xl flex flex-col items-center shadow-sm">
+              <span class="text-2xl">🍂</span>
+              <span class="text-[10px] font-bold text-lime-950 mt-0.5">Daun</span>
+            </button>
+            <button onclick="selectTargetDirectly('roti')" class="bg-orange-50 hover:bg-orange-100 active:scale-95 border-2 border-orange-200 p-1.5 rounded-xl flex flex-col items-center shadow-sm">
+              <span class="text-2xl">🍞</span>
+              <span class="text-[10px] font-bold text-orange-950 mt-0.5">Roti</span>
+            </button>
+            <button onclick="selectTargetDirectly('telefon')" class="bg-indigo-50 hover:bg-indigo-100 active:scale-95 border-2 border-indigo-200 p-1.5 rounded-xl flex flex-col items-center shadow-sm">
+              <span class="text-2xl">📱</span>
+              <span class="text-[10px] font-bold text-indigo-950 mt-0.5">Telefon</span>
+            </button>
+            <button onclick="selectTargetDirectly('buku')" class="bg-cyan-50 hover:bg-cyan-100 active:scale-95 border-2 border-cyan-200 p-1.5 rounded-xl flex flex-col items-center shadow-sm">
+              <span class="text-2xl">📖</span>
+              <span class="text-[10px] font-bold text-cyan-950 mt-0.5">Buku</span>
+            </button>
+            <button onclick="selectTargetDirectly('kertas')" class="bg-slate-50 hover:bg-slate-100 active:scale-95 border-2 border-slate-200 p-1.5 rounded-xl flex flex-col items-center shadow-sm">
+              <span class="text-2xl">📄</span>
+              <span class="text-[10px] font-bold text-slate-950 mt-0.5">Kertas</span>
+            </button>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ================= PANDANGAN 2: SOALAN HUKUM & ANALISIS CIRI ================= -->
+      <section id="viewQuestion" class="hidden flex-1 flex flex-col space-y-3">
+
+        <!-- Kad Tajuk Bahan Dikesan -->
+        <div class="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-3xl p-4 text-white shadow-lg flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <span id="qItemIcon" class="text-5xl drop-shadow-md">🪨</span>
+            <div>
+              <span class="text-xs uppercase font-extrabold tracking-wider bg-white/20 px-2.5 py-0.5 rounded-full">Bahan Dikesan</span>
+              <h2 id="qItemName" class="font-fun text-2xl font-bold leading-tight">BATU</h2>
+            </div>
+          </div>
+          <button onclick="speakCurrentItem()" class="w-11 h-11 bg-white text-emerald-700 rounded-2xl active:scale-95 flex items-center justify-center text-lg shadow-md">
+            <i class="fa-solid fa-volume-high"></i>
+          </button>
+        </div>
+
+        <!-- Soalan Utama -->
+        <div class="bg-white border-2 border-emerald-100 rounded-2xl p-3.5 shadow-sm">
+          <p class="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-1">Soalan Istinja' (SP 4.2.2)</p>
+          <p class="text-base font-extrabold text-slate-800 leading-snug">
+            “Adakah bahan ini boleh digunakan untuk beristinja’, dan apakah ciri objek ini mengikut Syarak?”
+          </p>
+        </div>
+
+        <!-- Pilihan Hukum (BOLEH / TIDAK BOLEH) -->
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1.5">Langkah 1: Pilih Hukum Penggunaan</label>
+          <div class="grid grid-cols-2 gap-3">
+            <button id="btnOptBoleh" onclick="selectAnswerOption('BOLEH')" class="py-3 px-3 rounded-2xl border-4 border-slate-200 bg-white font-fun font-bold text-base text-emerald-800 active:scale-95 shadow-sm flex items-center justify-center gap-2 transition-all">
+              <span class="text-xl">🟢</span> BOLEH
+            </button>
+            <button id="btnOptTidak" onclick="selectAnswerOption('TIDAK_BOLEH')" class="py-3 px-3 rounded-2xl border-4 border-slate-200 bg-white font-fun font-bold text-base text-rose-800 active:scale-95 shadow-sm flex items-center justify-center gap-2 transition-all">
+              <span class="text-xl">🔴</span> TIDAK BOLEH
+            </button>
+          </div>
+        </div>
+
+        <!-- Kotak Menjawab / Menaip Ciri Bahan -->
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="text-xs font-bold text-slate-600">Langkah 2: Nyatakan Ciri Objek Ini</label>
+            <span class="text-[11px] text-teal-700 font-semibold">Tulis / Sentuh kata kunci:</span>
+          </div>
+
+          <!-- Cip Kata Kunci Ciri -->
+          <div class="flex flex-wrap gap-1.5 mb-2">
+            <button type="button" onclick="insertKeyword('kesat')" class="text-xs bg-slate-100 hover:bg-emerald-100 border border-slate-300 hover:border-emerald-400 px-2.5 py-1 rounded-lg font-bold text-slate-700 active:scale-95">
+              + Kesat
+            </button>
+            <button type="button" onclick="insertKeyword('suci')" class="text-xs bg-slate-100 hover:bg-emerald-100 border border-slate-300 hover:border-emerald-400 px-2.5 py-1 rounded-lg font-bold text-slate-700 active:scale-95">
+              + Suci
+            </button>
+            <button type="button" onclick="insertKeyword('makanan yang dimuliakan')" class="text-xs bg-slate-100 hover:bg-rose-100 border border-slate-300 hover:border-rose-400 px-2.5 py-1 rounded-lg font-bold text-slate-700 active:scale-95">
+              + Makanan
+            </button>
+            <button type="button" onclick="insertKeyword('licin')" class="text-xs bg-slate-100 hover:bg-amber-100 border border-slate-300 hover:border-amber-400 px-2.5 py-1 rounded-lg font-bold text-slate-700 active:scale-95">
+              + Licin
+            </button>
+            <button type="button" onclick="insertKeyword('air mutlak menyucikan')" class="text-xs bg-slate-100 hover:bg-blue-100 border border-slate-300 hover:border-blue-400 px-2.5 py-1 rounded-lg font-bold text-slate-700 active:scale-95">
+              + Air Mutlak
+            </button>
+            <button type="button" onclick="insertKeyword('ilmu dimuliakan')" class="text-xs bg-slate-100 hover:bg-cyan-100 border border-slate-300 hover:border-cyan-400 px-2.5 py-1 rounded-lg font-bold text-slate-700 active:scale-95">
+              + Benda Berharga
+            </button>
+          </div>
+
+          <textarea id="txtCharacteristics" rows="2" placeholder="Contoh: Batu bersikap kesat, suci dan bukan makanan..." class="w-full text-sm p-3 rounded-2xl border-2 border-slate-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none resize-none shadow-inner"></textarea>
+        </div>
+
+        <!-- Butang Semak Jawapan Murid -->
+        <button id="btnSubmitAnswer" onclick="checkStudentAnswer()" class="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 active:scale-98 text-white rounded-2xl font-fun font-bold text-lg shadow-lg flex items-center justify-center gap-2">
+          <span>✏️</span> SEMAK JAWAPAN SAYA
+        </button>
+
+        <!-- Kotak Maklum Balas Keputusan Jawapan -->
+        <div id="feedbackBox" class="hidden rounded-2xl p-4 border-2 shadow-md">
+          <div class="flex items-start gap-3">
+            <span id="fbIcon" class="text-3xl">🎉</span>
+            <div class="flex-1">
+              <h3 id="fbTitle" class="font-fun text-lg font-bold">BETUL! SYABAS!</h3>
+              <p id="fbExplanation" class="text-xs text-slate-700 leading-relaxed mt-1 font-medium"></p>
+            </div>
+          </div>
+          <div class="mt-3 pt-3 border-t border-slate-200/60 flex items-center justify-between">
+            <button id="btnListenExplanation" onclick="speakExplanation()" class="text-xs font-bold text-emerald-800 bg-white px-3 py-1.5 rounded-xl border border-emerald-300 shadow-sm flex items-center gap-1 active:scale-95">
+              <i class="fa-solid fa-volume-high"></i> Dengar Semula
+            </button>
+            <button onclick="returnToScanner()" class="text-xs font-bold text-white bg-emerald-600 px-4 py-1.5 rounded-xl shadow-md flex items-center gap-1 active:scale-95">
+              Imbas Objek Seterusnya <i class="fa-solid fa-arrow-right"></i>
+            </button>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ================= PANDANGAN 3: KAD MISI DETEKTIF ================= -->
+      <section id="viewMission" class="hidden flex-1 flex flex-col space-y-3">
+        <div class="bg-gradient-to-r from-amber-400 to-orange-400 p-4 rounded-3xl text-amber-950 shadow-md flex items-center justify-between">
+          <div>
+            <span class="text-xs font-bold uppercase bg-white/40 px-2 py-0.5 rounded-full">Buku Rekod Siasatan</span>
+            <h2 class="font-fun text-xl font-bold">Misi Detektif Istinja'</h2>
+          </div>
+          <span class="text-4xl">🎖️</span>
+        </div>
+
+        <!-- Senarai 10 Bahan Wajib & Status -->
+        <div class="bg-white rounded-2xl border-2 border-slate-200 p-2 shadow-sm flex-1 overflow-y-auto max-h-[380px] custom-scroll">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="border-b border-slate-200 text-slate-500 font-bold">
+                <th class="py-2 px-1">Ikon</th>
+                <th class="py-2 px-1">Bahan</th>
+                <th class="py-2 px-1">Hukum</th>
+                <th class="py-2 px-1 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody id="missionTableBody" class="divide-y divide-slate-100">
+              <!-- Diisi dinamik oleh JavaScript -->
+            </tbody>
+          </table>
+        </div>
+
+        <div class="flex gap-2">
+          <button onclick="showScannerView()" class="flex-1 py-3 bg-emerald-600 text-white rounded-2xl font-fun font-bold text-sm shadow active:scale-95 flex items-center justify-center gap-2">
+            <i class="fa-solid fa-camera"></i> Sambung Imbas
+          </button>
+          <button onclick="showAssessmentReport()" class="flex-1 py-3 bg-teal-700 text-white rounded-2xl font-fun font-bold text-sm shadow active:scale-95 flex items-center justify-center gap-2">
+            <i class="fa-solid fa-clipboard-check"></i> Rumusan Markah
+          </button>
+        </div>
+      </section>
+
+      <!-- ================= PANDANGAN 4: RUMUSAN PENTAKSIRAN ================= -->
+      <section id="viewSummary" class="hidden flex-1 flex flex-col space-y-3">
+        <div class="bg-gradient-to-r from-teal-600 to-emerald-700 text-white p-4 rounded-3xl shadow-lg text-center">
+          <span class="text-4xl">🏆</span>
+          <h2 class="font-fun text-2xl font-bold mt-1">RUMUSAN PENTAKSIRAN</h2>
+          <p class="text-xs text-teal-100">Pentaksiran Bilik Darjah (PBD) - SP 4.2.2</p>
+        </div>
+
+        <div class="bg-white rounded-2xl border-2 border-teal-100 p-4 shadow-sm space-y-3">
+          <div class="grid grid-cols-2 gap-3 text-center">
+            <div class="bg-sky-50 p-3 rounded-2xl border border-sky-100">
+              <p class="text-xs text-slate-500 font-semibold">Bahan Disiasat</p>
+              <p id="sumTotalExplored" class="text-2xl font-extrabold text-sky-700">0/10</p>
+            </div>
+            <div class="bg-emerald-50 p-3 rounded-2xl border border-emerald-100">
+              <p class="text-xs text-slate-500 font-semibold">Jawapan Tepat</p>
+              <p id="sumCorrectCount" class="text-2xl font-extrabold text-emerald-600">0</p>
+            </div>
+          </div>
+
+          <div class="p-3 bg-amber-50 rounded-2xl border border-amber-200 flex items-center justify-between">
+            <div>
+              <p class="text-xs font-bold text-amber-900">Skor Bintang Keseluruhan</p>
+              <p id="sumStarsDisplay" class="text-base font-extrabold text-amber-600">⭐⭐⭐⭐⭐</p>
+            </div>
+            <span id="sumBadgeTitle" class="text-xs bg-amber-300 font-bold px-3 py-1 rounded-full text-amber-950">Detektif Cilik</span>
+          </div>
+
+          <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200">
+            <p class="text-xs font-bold text-slate-700 mb-1">Maklum Balas Guru Maya:</p>
+            <p id="sumTeacherNote" class="text-xs text-slate-600 leading-relaxed font-medium">
+              Syabas kerana telah berusaha menyelesaikan tugasan menyiasat alat-alat istinja'. Ingatlah bahawa istinja' wajib menggunakan air mutlak atau benda-benda kesat, suci, dan bukan makanan yang dimuliakan!
+            </p>
+          </div>
+        </div>
+
+        <button onclick="restartEntireActivity()" class="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-2xl font-fun font-bold text-base shadow-md active:scale-95 flex items-center justify-center gap-2">
+          <i class="fa-solid fa-rotate-right"></i> Mula Semula Misi
+        </button>
+      </section>
+
+    </main>
+
+    <!-- FOOTER NAVIGASI MESRA IBU JARI -->
+    <nav class="bg-white border-t border-slate-200 px-6 py-2 flex justify-around items-center sticky bottom-0 z-30 shadow-lg">
+      <button onclick="showScannerView()" id="navScan" class="flex flex-col items-center text-emerald-600">
+        <i class="fa-solid fa-camera text-lg"></i>
+        <span class="text-[10px] font-bold mt-0.5">Imbas</span>
+      </button>
+      <button onclick="goToMissionCard()" id="navMission" class="flex flex-col items-center text-slate-400 hover:text-emerald-600">
+        <i class="fa-solid fa-list-check text-lg"></i>
+        <span class="text-[10px] font-bold mt-0.5">Kad Misi</span>
+      </button>
+      <button onclick="showAssessmentReport()" id="navReport" class="flex flex-col items-center text-slate-400 hover:text-emerald-600">
+        <i class="fa-solid fa-award text-lg"></i>
+        <span class="text-[10px] font-bold mt-0.5">Pentaksiran</span>
+      </button>
+    </nav>
+
+  </div>
+
+  <!-- JAVASCRIPT UTAMA: LOGIK PENGESANAN, FIQH, AUDIO & INTERAKTIVITI -->
+  <script>
+    /* ==========================================================================
+       1. PANGKALAN DATA 10 BAHAN WAJIB & KAEDAH FIQH SYARAK (SP 4.2.2)
+       ========================================================================== */
+    const MUST_DETECT_ITEMS = {
+      batu: {
+        id: "batu",
+        name: "Batu",
+        icon: "🪨",
+        canUse: true,
+        primaryFeature: "Benda pepejal, kesat, suci, dan bukan makanan.",
+        justification: "Batu BOLEH digunakan untuk beristinja’ kerana ia benda kesat yang suci, beku, tidak dihormati/dimuliakan, dan mampu menanggalkan najis dengan berkesan.",
+        matchKeywords: ["rock", "stone", "boulder", "pebble", "gravel", "meteor"],
+        requiredFiqhKeys: ["kesat", "suci", "beku", "bukan makanan", "bersih", "menanggalkan"]
+      },
+      air: {
+        id: "air",
+        name: "Air Mutlak",
+        icon: "💧",
+        canUse: true,
+        primaryFeature: "Cecair mutlak yang suci lagi menyucikan (alat utama).",
+        justification: "Air mutlak BOLEH dan merupakan alat istinja’ paling afdal dan utama kerana sifatnya yang suci lagi menyucikan fizikal dan hukum najis.",
+        matchKeywords: ["bottle", "water", "cup", "mug", "pitcher", "water bottle", "beaker"],
+        requiredFiqhKeys: ["air", "mutlak", "suci", "menyucikan", "afdal", "bersih"]
+      },
+      tisu: {
+        id: "tisu",
+        name: "Tisu Bersih",
+        icon: "🧻",
+        canUse: true,
+        primaryFeature: "Benda kesat kering yang suci dan menyerap.",
+        justification: "Tisu BOLEH digunakan untuk beristinja’ kerana permukaannya kesat, bersih suci, bukan makanan, dan dapat menyerap serta menanggalkan najis.",
+        matchKeywords: ["toilet tissue", "tissue", "paper towel", "toilet paper", "napkin"],
+        requiredFiqhKeys: ["kesat", "suci", "serap", "bukan makanan", "bersih", "kering"]
+      },
+      epal: {
+        id: "epal",
+        name: "Epal / Buah-buahan",
+        icon: "🍎",
+        canUse: false,
+        primaryFeature: "Makanan manusia yang wajib dimuliakan (rezeki).",
+        justification: "Epal TIDAK BOLEH digunakan untuk beristinja’ kerana ia adalah makanan manusia yang wajib dimuliakan dan haram dicemari najis atau dibazirkan.",
+        matchKeywords: ["apple", "fruit", "orange", "banana", "strawberry", "pomegranate"],
+        requiredFiqhKeys: ["makanan", "dimuliakan", "rezeki", "haram", "bazir", "makan"]
+      },
+      pen: {
+        id: "pen",
+        name: "Pen / Pensil",
+        icon: "🖊️",
+        canUse: false,
+        primaryFeature: "Permukaan licin (plastik/logam) & alat menuntut ilmu.",
+        justification: "Pen TIDAK BOLEH digunakan kerana permukaannya licin (tidak menanggalkan najis malah meluaskannya) dan merupakan alat menulis ilmu yang dimuliakan.",
+        matchKeywords: ["pen", "ballpoint", "fountain pen", "pencil", "quill", "marker"],
+        requiredFiqhKeys: ["licin", "plastik", "ilmu", "tidak kesat", "tidak serap", "dimuliakan"]
+      },
+      daun: {
+        id: "daun",
+        name: "Daun Kering",
+        icon: "🍂",
+        canUse: true,
+        primaryFeature: "Benda kesat dan suci (daun kering tidak bernilai).",
+        justification: "Daun kering BOLEH digunakan kerana sifatnya yang kesat, suci, dan bukan makanan. (Nota: Daun basah yang licin atau daun makanan sayur tidak dibenarkan).",
+        matchKeywords: ["leaf", "dry leaf", "foliage", "plant", "pot plant"],
+        requiredFiqhKeys: ["kesat", "kering", "suci", "bukan makanan", "bersih"]
+      },
+      roti: {
+        id: "roti",
+        name: "Roti / Snek Makanan",
+        icon: "🍞",
+        canUse: false,
+        primaryFeature: "Makanan yang dimuliakan dan rezeki manusia.",
+        justification: "Roti TIDAK BOLEH digunakan sama sekali kerana ia merupakan makanan yang dimuliakan dalam Syarak. Menghina makanan dengan najis adalah perbuatan haram.",
+        matchKeywords: ["bread", "bakery", "toast", "bagel", "snack", "cookie", "biscuit", "sandwich"],
+        requiredFiqhKeys: ["makanan", "dimuliakan", "rezeki", "haram", "najis", "makan"]
+      },
+      telefon: {
+        id: "telefon",
+        name: "Telefon Pintar",
+        icon: "📱",
+        canUse: false,
+        primaryFeature: "Benda berharga licin dan mengandungi ayat al-Quran/ilmu.",
+        justification: "Telefon bimbit TIDAK BOLEH digunakan kerana permukaannya licin berkaca, merupakan harta berharga yang dimuliakan, dan dikhuatiri mengandungi teks ayat suci al-Quran.",
+        matchKeywords: ["cell phone", "mobile phone", "cellular telephone", "phone", "smartphone"],
+        requiredFiqhKeys: ["licin", "kaca", "berharga", "ilmu", "dimuliakan", "elektronik"]
+      },
+      buku: {
+        id: "buku",
+        name: "Buku / Kitab",
+        icon: "📖",
+        canUse: false,
+        primaryFeature: "Bahan bacaan dan wadah ilmu yang wajib dimuliakan.",
+        justification: "Buku TIDAK BOLEH digunakan untuk beristinja’ kerana kertas yang tertulis ilmu pengetahuan adalah benda yang wajib dimuliakan menurut Syarak.",
+        matchKeywords: ["book", "comic book", "hardcover", "notebook", "booklet", "binder"],
+        requiredFiqhKeys: ["ilmu", "dimuliakan", "tulisan", "bacaan", "berharga", "dihormati"]
+      },
+      kertas: {
+        id: "kertas",
+        name: "Kertas Bersih Kosong",
+        icon: "📄",
+        canUse: true,
+        primaryFeature: "Kertas kosong kesat (jika tiada sebarang tulisan ilmu).",
+        justification: "Kertas kosong tanpa sebarang tulisan ilmu dan sifatnya kesat BOLEH digunakan sebagai alternatif mengikut sebahagian ulama, namun jika licin atau bertulis ilmu ia dilarang.",
+        matchKeywords: ["paper", "envelope", "document", "sheet", "stationary"],
+        requiredFiqhKeys: ["kesat", "tiada ilmu", "suci", "serap", "bukan makanan", "kosong"]
+      }
+    };
+
+    /* ==========================================================================
+       2. KEADAAN SISTEM (APP STATE)
+       ========================================================================== */
+    let cocoModel = null;
+    let mobilenetModel = null;
+    let videoStream = null;
+    let isDetecting = false;
+    let soundEnabled = true;
+
+    let currentItem = null;
+    let selectedHukum = null;
+    let candidateCount = {};
+    let lockHoldFrames = 0;
+    const LOCK_FRAME_THRESHOLD = 7; // ~1 saat pengekalan objek konsisten
+
+    // Rekod Kemajuan Misi Murid
+    let missionProgress = {
+      batu: { investigated: false, correct: false },
+      air: { investigated: false, correct: false },
+      tisu: { investigated: false, correct: false },
+      epal: { investigated: false, correct: false },
+      pen: { investigated: false, correct: false },
+      daun: { investigated: false, correct: false },
+      roti: { investigated: false, correct: false },
+      telefon: { investigated: false, correct: false },
+      buku: { investigated: false, correct: false },
+      kertas: { investigated: false, correct: false }
+    };
+
+    /* ==========================================================================
+       3. SISTEM AUDIO & SUARA BAHASA MELAYU
+       ========================================================================== */
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function playTone(freq, duration, type = "sine") {
+      if (!soundEnabled) return;
+      try {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.18, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {
+        console.warn("Audio Context:", e);
+      }
+    }
+
+    function playSuccessJingle() {
+      playTone(523.25, 0.12, "triangle"); // C5
+      setTimeout(() => playTone(659.25, 0.14, "triangle"), 110); // E5
+      setTimeout(() => playTone(783.99, 0.28, "triangle"), 230); // G5
+    }
+
+    function playGentleWrongTone() {
+      playTone(440, 0.18, "sine");
+      setTimeout(() => playTone(392, 0.25, "sine"), 160);
+    }
+
+    function playLockSound() {
+      playTone(880, 0.1, "sine");
+      setTimeout(() => playTone(1174.66, 0.15, "sine"), 100);
+    }
+
+    function speakMalayText(text) {
+      if (!soundEnabled || !('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'ms-MY';
+      utterance.rate = 0.95;
+      utterance.pitch = 1.05;
+
+      const voices = window.speechSynthesis.getVoices();
+      const malayVoice = voices.find(v => v.lang.includes('ms') || v.lang.includes('id') || v.name.toLowerCase().includes('malay'));
+      if (malayVoice) utterance.voice = malayVoice;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function toggleAudio() {
+      soundEnabled = !soundEnabled;
+      const icon = document.getElementById("audioIcon");
+      if (soundEnabled) {
+        icon.className = "fa-solid fa-volume-high";
+        speakMalayText("Audio dihidupkan");
+      } else {
+        icon.className = "fa-solid fa-volume-xmark";
+        window.speechSynthesis.cancel();
+      }
+    }
+
+    /* ==========================================================================
+       4. INISIALISASI KAMERA & MODEL AI (TENSORFLOW)
+       ========================================================================== */
+    let currentFacingMode = "environment";
+
+    async function initAIModels() {
+      updateLiveBadge("Memuatkan Enjin AI...", "bg-amber-500");
+      try {
+        const [coco, mobilenet] = await Promise.all([
+          cocoSsd.load(),
+          mobilenet.load({ version: 2, alpha: 1.0 })
+        ]);
+        cocoModel = coco;
+        mobilenetModel = mobilenet;
+        updateLiveBadge("Enjin AI Sedia", "bg-emerald-500");
+        startCameraStream();
+      } catch (err) {
+        console.error("Gagal memuat model:", err);
+        updateLiveBadge("Guna Pilihan Bahan", "bg-sky-600");
+        startCameraStream();
+      }
+    }
+
+    async function startCameraStream() {
+      const video = document.getElementById("webcamVideo");
+      if (videoStream) {
+        videoStream.getTracks().forEach(t => t.stop());
+      }
+      try {
+        videoStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false
+        });
+        video.srcObject = videoStream;
+        video.onloadedmetadata = () => {
+          video.play();
+          isDetecting = true;
+          startLiveDetectionLoop();
+        };
+      } catch (err) {
+        console.warn("Kamera tidak dapat diakses:", err);
+        updateLiveBadge("Kamera Luar Talian", "bg-rose-500");
+      }
+    }
+
+    function switchCameraMode() {
+      currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
+      startCameraStream();
+    }
+
+    function restartCameraScanner() {
+      candidateCount = {};
+      lockHoldFrames = 0;
+      updateProgressBar(0);
+      updateLiveBadge("Sedang Memerhati...", "bg-emerald-500");
+      if (!isDetecting) {
+        isDetecting = true;
+        startLiveDetectionLoop();
+      }
+    }
+
+    /* ==========================================================================
+       5. ALGORITMA PENGEAMAN TEPAT 10 BAHAN WAJIB
+       ========================================================================== */
+    function mapPredictionsToTarget(cocoPredictions, mobilenetPredictions) {
+      // Gabungkan label pengesanan
+      const detectedLabels = [];
+
+      if (cocoPredictions && cocoPredictions.length > 0) {
+        cocoPredictions.forEach(p => {
+          if (p.score > 0.45) detectedLabels.push(p.class.toLowerCase());
+        });
+      }
+
+      if (mobilenetPredictions && mobilenetPredictions.length > 0) {
+        mobilenetPredictions.forEach(m => {
+          if (m.probability > 0.18) {
+            const parts = m.className.toLowerCase().split(',');
+            parts.forEach(pt => detectedLabels.push(pt.trim()));
+          }
+        });
+      }
+
+      if (detectedLabels.length === 0) return null;
+
+      // Padankan label kepada 10 bahan wajib mengikut keutamaan khusus
+      for (const raw of detectedLabels) {
+        // Epal & Buah
+        if (raw.includes("apple") || raw.includes("orange") || raw.includes("banana") || raw.includes("fruit")) {
+          return MUST_DETECT_ITEMS.epal;
+        }
+        // Roti & Makanan
+        if (raw.includes("bread") || raw.includes("bakery") || raw.includes("toast") || raw.includes("bagel") || raw.includes("sandwich") || raw.includes("cookie")) {
+          return MUST_DETECT_ITEMS.roti;
+        }
+        // Telefon Pintar
+        if (raw.includes("cell phone") || raw.includes("cellular") || raw.includes("phone") || raw.includes("smartphone") || raw.includes("ipod")) {
+          return MUST_DETECT_ITEMS.telefon;
+        }
+        // Buku & Kitab
+        if (raw.includes("book") || raw.includes("notebook") || raw.includes("comic book") || raw.includes("booklet") || raw.includes("binder")) {
+          return MUST_DETECT_ITEMS.buku;
+        }
+        // Kertas Lembaran
+        if (raw.includes("paper") || raw.includes("envelope") || raw.includes("document") || raw.includes("sheet")) {
+          return MUST_DETECT_ITEMS.kertas;
+        }
+        // Pen / Pensil
+        if (raw.includes("pen") || raw.includes("ballpoint") || raw.includes("pencil") || raw.includes("marker") || raw.includes("quill")) {
+          return MUST_DETECT_ITEMS.pen;
+        }
+        // Air / Bekas Minuman
+        if (raw.includes("bottle") || raw.includes("water") || raw.includes("cup") || raw.includes("mug") || raw.includes("pitcher")) {
+          return MUST_DETECT_ITEMS.air;
+        }
+        // Tisu
+        if (raw.includes("toilet tissue") || raw.includes("tissue") || raw.includes("paper towel") || raw.includes("napkin")) {
+          return MUST_DETECT_ITEMS.tisu;
+        }
+        // Daun Kering / Tumbuhan
+        if (raw.includes("leaf") || raw.includes("plant") || raw.includes("pot plant") || raw.includes("foliage")) {
+          return MUST_DETECT_ITEMS.daun;
+        }
+        // Batu Sebenar (hanya padan jika label batu tulen wujud)
+        if (raw.includes("stone") || raw.includes("rock") || raw.includes("pebble") || raw.includes("gravel") || raw.includes("boulder")) {
+          return MUST_DETECT_ITEMS.batu;
+        }
+      }
+
+      return null;
+    }
+
+    async function startLiveDetectionLoop() {
+      const video = document.getElementById("webcamVideo");
+
+      const detectFrame = async () => {
+        if (!isDetecting) return;
+
+        if (video.readyState === 4 && (cocoModel || mobilenetModel)) {
+          let cocoPreds = [];
+          let mobilePreds = [];
+
+          try {
+            if (cocoModel) {
+              cocoPreds = await cocoModel.detect(video, 4);
+            }
+            if (mobilenetModel) {
+              mobilePreds = await mobilenetModel.classify(video, 4);
+            }
+          } catch (e) {
+            // Bingkai terlepas
+          }
+
+          const targetDetected = mapPredictionsToTarget(cocoPreds, mobilePreds);
+
+          if (targetDetected) {
+            updateLiveBadge(`Dikesan: ${targetDetected.name.toUpperCase()} ${targetDetected.icon}`, "bg-emerald-500");
+            
+            // Kestabilan pengesanan (Temporal lock)
+            if (!candidateCount[targetDetected.id]) candidateCount[targetDetected.id] = 0;
+            candidateCount[targetDetected.id]++;
+
+            lockHoldFrames++;
+            const progressPercent = Math.min(100, Math.round((lockHoldFrames / LOCK_FRAME_THRESHOLD) * 100));
+            updateProgressBar(progressPercent);
+
+            if (lockHoldFrames >= LOCK_FRAME_THRESHOLD) {
+              // Objek disahkan & dikunci!
+              isDetecting = false;
+              playLockSound();
+              triggerQuestionView(targetDetected);
+              return;
+            }
+          } else {
+            // Tiada objek sasaran yang stabil
+            if (lockHoldFrames > 0) {
+              lockHoldFrames = Math.max(0, lockHoldFrames - 1);
+              updateProgressBar(Math.round((lockHoldFrames / LOCK_FRAME_THRESHOLD) * 100));
+            } else {
+              updateLiveBadge("Hala ke 10 Bahan Wajib", "bg-slate-700");
+            }
+          }
+        }
+
+        requestAnimationFrame(detectFrame);
+      };
+
+      requestAnimationFrame(detectFrame);
+    }
+
+    function updateLiveBadge(text, bgColorClass) {
+      const badge = document.getElementById("aiLiveBadge");
+      const label = document.getElementById("aiLiveText");
+      label.innerText = text;
+      badge.className = `${bgColorClass} backdrop-blur text-white text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow`;
+    }
+
+    function updateProgressBar(percent) {
+      const bar = document.getElementById("lockProgressBar");
+      bar.style.width = percent + "%";
+    }
+
+    /* ==========================================================================
+       6. ALIRAN SOALAN & ANALISIS CIRI BAHAN
+       ========================================================================== */
+    function selectTargetDirectly(itemId) {
+      if (MUST_DETECT_ITEMS[itemId]) {
+        isDetecting = false;
+        playLockSound();
+        triggerQuestionView(MUST_DETECT_ITEMS[itemId]);
+      }
+    }
+
+    function triggerQuestionView(item) {
+      currentItem = item;
+      selectedHukum = null;
+
+      // Kemaskini Paparan Soalan
+      document.getElementById("qItemName").innerText = item.name.toUpperCase();
+      document.getElementById("qItemIcon").innerText = item.icon;
+      document.getElementById("txtCharacteristics").value = "";
+
+      // Reset Pilihan Butang
+      resetOptionButtons();
+
+      // Sembunyikan Kotak Maklum Balas
+      document.getElementById("feedbackBox").classList.add("hidden");
+      document.getElementById("btnSubmitAnswer").classList.remove("hidden");
+
+      // Beralih Paparan
+      document.getElementById("viewScanner").classList.add("hidden");
+      document.getElementById("viewMission").classList.add("hidden");
+      document.getElementById("viewSummary").classList.add("hidden");
+      document.getElementById("viewQuestion").classList.remove("hidden");
+
+      // Suara Arahan Automatik
+      speakMalayText(`Bahan dikesan: ${item.name}. Adakah bahan ini boleh digunakan untuk beristinja’, dan apakah ciri objek ini?`);
+    }
+
+    function speakCurrentItem() {
+      if (currentItem) {
+        speakMalayText(`Bahan ini ialah ${currentItem.name}. Adakah boleh digunakan untuk beristinja'? Nyatakan cirinya.`);
+      }
+    }
+
+    function selectAnswerOption(status) {
+      selectedHukum = status;
+      const btnBoleh = document.getElementById("btnOptBoleh");
+      const btnTidak = document.getElementById("btnOptTidak");
+
+      if (status === "BOLEH") {
+        btnBoleh.className = "py-3 px-3 rounded-2xl border-4 border-emerald-500 bg-emerald-50 font-fun font-bold text-base text-emerald-800 scale-102 shadow-md flex items-center justify-center gap-2";
+        btnTidak.className = "py-3 px-3 rounded-2xl border-4 border-slate-200 bg-white font-fun font-bold text-base text-slate-400 active:scale-95 shadow-sm flex items-center justify-center gap-2";
+        playTone(600, 0.08);
+      } else {
+        btnTidak.className = "py-3 px-3 rounded-2xl border-4 border-rose-500 bg-rose-50 font-fun font-bold text-base text-rose-800 scale-102 shadow-md flex items-center justify-center gap-2";
+        btnBoleh.className = "py-3 px-3 rounded-2xl border-4 border-slate-200 bg-white font-fun font-bold text-base text-slate-400 active:scale-95 shadow-sm flex items-center justify-center gap-2";
+        playTone(400, 0.08);
+      }
+    }
+
+    function resetOptionButtons() {
+      document.getElementById("btnOptBoleh").className = "py-3 px-3 rounded-2xl border-4 border-slate-200 bg-white font-fun font-bold text-base text-emerald-800 active:scale-95 shadow-sm flex items-center justify-center gap-2 transition-all";
+      document.getElementById("btnOptTidak").className = "py-3 px-3 rounded-2xl border-4 border-slate-200 bg-white font-fun font-bold text-base text-rose-800 active:scale-95 shadow-sm flex items-center justify-center gap-2 transition-all";
+    }
+
+    function insertKeyword(word) {
+      const txt = document.getElementById("txtCharacteristics");
+      if (txt.value.trim().length > 0) {
+        txt.value += ", " + word;
+      } else {
+        txt.value = word;
+      }
+      txt.focus();
+    }
+
+    /* ==========================================================================
+       7. SEMAKAN JAWAPAN, SEMANTIK CIRI & MAKLUM BALAS
+       ========================================================================== */
+    function checkStudentAnswer() {
+      if (!selectedHukum) {
+        speakMalayText("Sila pilih sama ada bahan ini Boleh atau Tidak Boleh digunakan.");
+        alert("Sila pilih [🟢 BOLEH] atau [🔴 TIDAK BOLEH] terlebih dahulu!");
+        return;
+      }
+
+      const userText = document.getElementById("txtCharacteristics").value.toLowerCase();
+      const expectedHukum = currentItem.canUse ? "BOLEH" : "TIDAK_BOLEH";
+      const isHukumCorrect = (selectedHukum === expectedHukum);
+
+      // Semakan Ciri Bahan
+      const matchedFeature = currentItem.requiredFiqhKeys.some(key => userText.includes(key));
+      const hasTypedDescription = userText.trim().length >= 3;
+
+      const fbBox = document.getElementById("feedbackBox");
+      const fbTitle = document.getElementById("fbTitle");
+      const fbIcon = document.getElementById("fbIcon");
+      const fbDesc = document.getElementById("fbExplanation");
+
+      fbBox.classList.remove("hidden");
+
+      if (isHukumCorrect) {
+        playSuccessJingle();
+        fbBox.className = "rounded-2xl p-4 border-2 bg-emerald-50 border-emerald-300 shadow-md";
+        fbIcon.innerText = "🎉";
+        fbTitle.innerText = "BETUL! SYABAS DETEKTIF!";
+        fbTitle.className = "font-fun text-lg font-bold text-emerald-800";
+        
+        let extraNote = matchedFeature 
+          ? " Penerangan ciri anda sangat tepat mengikut Syarak!" 
+          : " (Petua Fiqh: Pastikan anda menyebut sifat kesat/suci atau kemuliaan makanannya).";
+
+        fbDesc.innerText = `${currentItem.justification}${extraNote}`;
+        speakMalayText(`Syabas! Jawapan kamu tepat! ${currentItem.justification}`);
+
+        // Rekod Kejayaan Misi
+        missionProgress[currentItem.id].investigated = true;
+        missionProgress[currentItem.id].correct = true;
+      } else {
+        playGentleWrongTone();
+        fbBox.className = "rounded-2xl p-4 border-2 bg-amber-50 border-amber-300 shadow-md";
+        fbIcon.innerText = "💡";
+        fbTitle.innerText = "CUBA FIKIR SEKALI LAGI";
+        fbTitle.className = "font-fun text-lg font-bold text-amber-800";
+        fbDesc.innerText = `Tidak mengapa, cuba fikir semula: Adakah ${currentItem.name} benda kesat yang suci, atau ia bahan yang dimuliakan/licin? Fikirkan semula hikmahnya.`;
+        speakMalayText(`Tidak mengapa, mari fikir sekali lagi. Adakah ${currentItem.name} boleh membersihkan najis atau ia makanan yang dimuliakan?`);
+
+        missionProgress[currentItem.id].investigated = true;
+        missionProgress[currentItem.id].correct = false;
+      }
+
+      updateMissionBadgeCounter();
+      renderMissionTable();
+    }
+
+    function speakExplanation() {
+      if (currentItem) {
+        speakMalayText(currentItem.justification);
+      }
+    }
+
+    function returnToScanner() {
+      showScannerView();
+    }
+
+    /* ==========================================================================
+       8. KAD MISI DETEKTIF & PENTAKSIRAN PBD KSSR
+       ========================================================================== */
+    function updateMissionBadgeCounter() {
+      const correctCount = Object.values(missionProgress).filter(m => m.correct).length;
+      document.getElementById("headerScore").innerText = `${correctCount}/10`;
+    }
+
+    function renderMissionTable() {
+      const tbody = document.getElementById("missionTableBody");
+      tbody.innerHTML = "";
+
+      Object.keys(MUST_DETECT_ITEMS).forEach(key => {
+        const item = MUST_DETECT_ITEMS[key];
+        const status = missionProgress[key];
+
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-50";
+
+        let statusBadge = `<span class="bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full text-[10px]">Belum</span>`;
+        if (status.investigated) {
+          statusBadge = status.correct 
+            ? `<span class="bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded-full text-[10px]">✅ Tepat</span>`
+            : `<span class="bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full text-[10px]">⚠️ Ulang</span>`;
+        }
+
+        const hukumBadge = item.canUse 
+          ? `<span class="text-emerald-700 font-bold">🟢 Boleh</span>` 
+          : `<span class="text-rose-600 font-bold">🔴 Tidak</span>`;
+
+        tr.innerHTML = `
+          <td class="py-2 px-1 text-xl">${item.icon}</td>
+          <td class="py-2 px-1 font-bold text-slate-800">${item.name}</td>
+          <td class="py-2 px-1">${hukumBadge}</td>
+          <td class="py-2 px-1 text-center">${statusBadge}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function showScannerView() {
+      document.getElementById("viewScanner").classList.remove("hidden");
+      document.getElementById("viewQuestion").classList.add("hidden");
+      document.getElementById("viewMission").classList.add("hidden");
+      document.getElementById("viewSummary").classList.add("hidden");
+      restartCameraScanner();
+    }
+
+    function goToMissionCard() {
+      isDetecting = false;
+      renderMissionTable();
+      document.getElementById("viewScanner").classList.add("hidden");
+      document.getElementById("viewQuestion").classList.add("hidden");
+      document.getElementById("viewSummary").classList.add("hidden");
+      document.getElementById("viewMission").classList.remove("hidden");
+    }
+
+    function showAssessmentReport() {
+      isDetecting = false;
+      const totalExplored = Object.values(missionProgress).filter(m => m.investigated).length;
+      const totalCorrect = Object.values(missionProgress).filter(m => m.correct).length;
+
+      document.getElementById("sumTotalExplored").innerText = `${totalExplored}/10`;
+      document.getElementById("sumCorrectCount").innerText = `${totalCorrect}`;
+
+      // Bintang & Lencana
+      let stars = "⭐";
+      let badge = "Detektif Pemula";
+      if (totalCorrect >= 9) {
+        stars = "⭐⭐⭐⭐⭐";
+        badge = "Detektif Istinja' Mumtaz 🏅";
+      } else if (totalCorrect >= 7) {
+        stars = "⭐⭐⭐⭐";
+        badge = "Detektif Cilik Jayyid 🎖️";
+      } else if (totalCorrect >= 4) {
+        stars = "⭐⭐⭐";
+        badge = "Detektif Berbakat 🔍";
+      } else {
+        stars = "⭐⭐";
+        badge = "Detektif Pelatih ✏️";
+      }
+
+      document.getElementById("sumStarsDisplay").innerText = stars;
+      document.getElementById("sumBadgeTitle").innerText = badge;
+
+      document.getElementById("viewScanner").classList.add("hidden");
+      document.getElementById("viewQuestion").classList.add("hidden");
+      document.getElementById("viewMission").classList.add("hidden");
+      document.getElementById("viewSummary").classList.remove("hidden");
+
+      speakMalayText(`Rumusan pentaksiran anda: Anda telah berjaya menjawab ${totalCorrect} daripada sepuluh bahan dengan tepat. Syabas!`);
+    }
+
+    function restartEntireActivity() {
+      Object.keys(missionProgress).forEach(k => {
+        missionProgress[k].investigated = false;
+        missionProgress[k].correct = false;
+      });
+      updateMissionBadgeCounter();
+      showScannerView();
+    }
+
+    // Mulakan Enjin Pengesanan Sebaik Sahaja Halaman Sedia
+    window.addEventListener("DOMContentLoaded", () => {
+      initAIModels();
+      renderMissionTable();
+    });
+  </script>
+</body>
+</html>
